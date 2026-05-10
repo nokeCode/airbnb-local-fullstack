@@ -145,7 +145,10 @@ export default function LogsPage() {
 
           <tbody>
             {logsData.map((log) => {
-              const NiveauIcon = niveauConfig[log.niveau].icon;
+              const cfg =
+                niveauConfig[log.niveau as keyof typeof niveauConfig] ??
+                niveauConfig.info;
+              const NiveauIcon = cfg.icon;
 
               return (
                 <tr key={log.id} className="border-t border-gray-800">
@@ -153,7 +156,7 @@ export default function LogsPage() {
                   <td className="p-4 text-gray-400 font-mono">{log.timestamp}</td>
 
                   <td>
-                    <span className={`px-2 py-1 text-xs border rounded ${niveauConfig[log.niveau].color}`}>
+                    <span className={`px-2 py-1 text-xs border rounded ${cfg.color}`}>
                       <NiveauIcon size={12} />
                       {log.niveau.toUpperCase()}
                     </span>

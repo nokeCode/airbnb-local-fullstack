@@ -25,7 +25,7 @@
       <br><sub><b>Page d'Accueil</b></sub>
     </td>
     <td align="center">
-      <img src="./frontend/front_web/public/roomtour.jpg" alt="Visite Virtuelle" width="100%">
+      <img src="./images/visite_biens.png" alt="Visite Virtuelle" width="100%">
       <br><sub><b>Visite des Biens</b></sub>
     </td>
   </tr>
@@ -35,7 +35,7 @@
       <br><sub><b>Catalogue de Propriétés</b></sub>
     </td>
     <td align="center">
-      <img src="./frontend/front_web/public/chambre1.avif" alt="Détails" width="100%">
+      <img src="./images/galerie des chambres.jpeg" alt="Détails" width="100%">
       <br><sub><b>Galerie des Chambres</b></sub>
     </td>
   </tr>

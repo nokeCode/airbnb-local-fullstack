@@ -152,7 +152,10 @@ export default function BiensManagement() {
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredBiens.map((bien) => {
-            const StatutIcon = statutConfig[bien.statut].icon;
+            const cfg =
+              statutConfig[bien.statut as keyof typeof statutConfig] ??
+              statutConfig.vacant;
+            const StatutIcon = cfg.icon;
             return (
               <div key={bien.id} className="bg-[#1E293B] border rounded-2xl overflow-hidden">
                 
@@ -192,9 +195,12 @@ export default function BiensManagement() {
             </tr>
           </thead>
 
-          <tbody>
-            {filteredBiens.map((bien) => {
-              const StatutIcon = statutConfig[bien.statut].icon;
+            <tbody>
+              {filteredBiens.map((bien) => {
+              const cfg =
+                statutConfig[bien.statut as keyof typeof statutConfig] ??
+                statutConfig.vacant;
+              const StatutIcon = cfg.icon;
 
               return (
                 <tr key={bien.id} className="border-t border-gray-800">
@@ -204,7 +210,7 @@ export default function BiensManagement() {
                   <td>
                     <span className="flex items-center gap-1">
                       <StatutIcon size={12} />
-                      {statutConfig[bien.statut].label}
+                      {cfg.label}
                     </span>
                   </td>
 
