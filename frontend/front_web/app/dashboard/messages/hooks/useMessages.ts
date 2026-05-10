@@ -17,6 +17,7 @@ interface UseMessagesReturn {
   sendMessage: (content: string, tempId: string) => Promise<void>;
   addIncomingMessage: (message: Message) => void;
   markAsRead: () => Promise<void>;
+  markSentAsRead: () => void;
 }
 
 export function useMessages(conversationId: number | null, currentUserId = 0): UseMessagesReturn {
@@ -36,6 +37,18 @@ export function useMessages(conversationId: number | null, currentUserId = 0): U
     });
   }, []);
 
+  const dedupeById = useCallback((list: Message[]) => {
+    const safe = Array.isArray(list) ? list : [];
+    const map = new Map<number, Message>();
+    for (const m of safe) {
+      const id = Number((m as any)?.id);
+      if (!Number.isFinite(id)) continue;
+      // Dernière occurrence gagne (utile si une version a `is_read` mis à jour).
+      map.set(id, { ...(m as any), id });
+    }
+    return Array.from(map.values());
+  }, []);
+
   const fetchConversation = useCallback(async () => {
     if (!conversationId) return;
     try {
@@ -52,7 +65,7 @@ export function useMessages(conversationId: number | null, currentUserId = 0): U
         console.error('Erreur fallback conversations:', e);
       }
     }
-  }, [conversationId]);
+  }, [conversationId, currentUserId]);
 
   const fetchMessages = useCallback(async (pageNum = 1, append = false) => {
     if (!conversationId) return;
@@ -66,9 +79,13 @@ export function useMessages(conversationId: number | null, currentUserId = 0): U
       }
       
       if (append) {
-        setMessages(prev => sortMessages([...(Array.isArray(prev) ? prev : []), ...(Array.isArray(data?.messages) ? data.messages : [])]));
+        setMessages((prev) =>
+          sortMessages(
+            dedupeById([...(Array.isArray(prev) ? prev : []), ...(Array.isArray(data?.messages) ? data.messages : [])])
+          )
+        );
       } else {
-        setMessages(sortMessages(Array.isArray(data?.messages) ? data.messages : []));
+        setMessages(sortMessages(dedupeById(Array.isArray(data?.messages) ? data.messages : [])));
       }
       
       setHasMore(data.has_more);
@@ -86,12 +103,22 @@ export function useMessages(conversationId: number | null, currentUserId = 0): U
     try {
       await api.markAsRead(conversationId);
       setMessages(prev =>
-        (Array.isArray(prev) ? prev : []).map(msg => ({ ...msg, is_read: true, read_at: new Date().toISOString() }))
+        (Array.isArray(prev) ? prev : []).map((msg) =>
+          msg.sender_id !== currentUserId ? { ...msg, is_read: true, read_at: new Date().toISOString() } : msg
+        )
       );
     } catch (err) {
       console.error('Erreur mark as read:', err);
     }
   }, [conversationId]);
+
+  const markSentAsRead = useCallback(() => {
+    setMessages((prev) =>
+      (Array.isArray(prev) ? prev : []).map((msg) =>
+        msg.sender_id === currentUserId ? { ...msg, is_read: true, read_at: new Date().toISOString() } : msg
+      )
+    );
+  }, [currentUserId]);
 
   useEffect(() => {
     if (!conversationId) {
@@ -117,37 +144,60 @@ export function useMessages(conversationId: number | null, currentUserId = 0): U
   const sendMessage = useCallback(async (content: string, tempId: string) => {
     if (!conversationId) return;
 
+    const optimisticId = -Date.now();
     const optimisticMessage: Message = {
-      id: 0,
+      id: optimisticId,
       content,
       sender_id: currentUserId,
       sender_name: 'Vous',
       created_at: new Date().toISOString(),
-      is_read: true,
+      is_read: false,
       read_at: null,
     };
     
-    setMessages(prev => sortMessages([...(Array.isArray(prev) ? prev : []), optimisticMessage]));
+    setMessages((prev) => sortMessages(dedupeById([...(Array.isArray(prev) ? prev : []), optimisticMessage])));
 
     try {
       const sent = await api.sendMessage(conversationId, content);
       setMessages(prev =>
-        sortMessages((Array.isArray(prev) ? prev : []).map(msg => (msg.id === 0 ? sent : msg)))
+        sortMessages(
+          dedupeById(
+            (Array.isArray(prev) ? prev : [])
+              .map((msg) => {
+                if (msg.id !== optimisticId) return msg;
+                // Si le message est déjà arrivé via WebSocket, on enlève juste l'optimiste.
+                const already = (Array.isArray(prev) ? prev : []).some((m) => m.id === sent.id);
+                return already ? null : sent;
+              })
+              .filter(Boolean) as Message[]
+          )
+        )
       );
     } catch (err) {
-      setMessages(prev => (Array.isArray(prev) ? prev : []).filter(msg => msg.id !== 0));
+      setMessages(prev => (Array.isArray(prev) ? prev : []).filter(msg => msg.id !== optimisticId));
       throw err;
     }
   }, [conversationId, currentUserId]);
 
   const addIncomingMessage = useCallback((message: Message) => {
-    if (!message || typeof message.id !== 'number') return;
-    if (message.id === 0) return;
+    if (!message) return;
+    const id = Number((message as any)?.id);
+    if (!Number.isFinite(id) || id === 0) return;
+
+    const created_at = typeof (message as any)?.created_at === 'string' && (message as any).created_at
+      ? (message as any).created_at
+      : new Date().toISOString();
+
+    const normalized: Message = {
+      ...(message as any),
+      id,
+      created_at,
+    };
 
     setMessages((prev) => {
       const safePrev = Array.isArray(prev) ? prev : [];
-      if (safePrev.some((m) => m.id === message.id)) return safePrev;
-      return sortMessages([...safePrev, message]);
+      if (safePrev.some((m) => m.id === id)) return safePrev;
+      return sortMessages(dedupeById([...safePrev, normalized]));
     });
   }, []);
 
@@ -173,5 +223,6 @@ export function useMessages(conversationId: number | null, currentUserId = 0): U
     sendMessage,
     addIncomingMessage,
     markAsRead,
+    markSentAsRead,
   };
 }

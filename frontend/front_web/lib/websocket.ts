@@ -14,7 +14,9 @@ export class ChatWebSocket {
 
   connect(): void {
     try {
-      this.ws = new WebSocket(`${this.url}?token=${this.token}`);
+      const separator = this.url.includes('?') ? '&' : '?';
+      const safeToken = encodeURIComponent(this.token || '');
+      this.ws = new WebSocket(`${this.url}${separator}token=${safeToken}`);
 
     this.ws.onopen = () => {
       console.log('[WebSocket] Connecté');
@@ -44,7 +46,8 @@ export class ChatWebSocket {
 
     this.ws.onerror = (event) => {
       // Note: le navigateur ne donne pas beaucoup de détails ici.
-      console.error('[WebSocket] Erreur', {
+      // On évite `console.error` pour ne pas déclencher l’overlay Next.js.
+      console.warn('[WebSocket] Erreur', {
         type: (event as any)?.type,
         url: this.ws?.url,
         readyState: this.ws?.readyState,

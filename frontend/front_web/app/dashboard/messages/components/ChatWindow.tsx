@@ -7,9 +7,11 @@ import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
 import { QuickReplies } from './QuickReplies';
 import { EmptyState } from './EmptyState';
-import { Phone, Video, MoreVertical, FileText, Calendar, CheckCircle, XCircle } from 'lucide-react';
+import { MoreVertical, FileText, Calendar, CheckCircle, XCircle } from 'lucide-react';
 import { getDisplayName } from '@/lib/displayName';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { getApplications, updateApplication } from '@/services/applicationsService';
+import type { Application } from '@/types/location';
 
 interface ChatWindowProps {
   conversationId: number | null;
@@ -18,6 +20,10 @@ interface ChatWindowProps {
 
 export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
   const endRef = useRef<HTMLDivElement | null>(null);
+  const [application, setApplication] = useState<Application | null>(null);
+  const [applicationLoading, setApplicationLoading] = useState(false);
+  const [applicationError, setApplicationError] = useState<string | null>(null);
+  const [applicationActionLoading, setApplicationActionLoading] = useState<null | 'accepted' | 'rejected'>(null);
 
   const {
     messages,
@@ -29,6 +35,7 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
     sendMessage,
     addIncomingMessage,
     markAsRead,
+    markSentAsRead,
   } = useMessages(conversationId, currentUserId);
 
   useWebSocket({
@@ -39,7 +46,7 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
     },
     onReadReceipt: (convId, userId) => {
       if (convId === conversationId) {
-        markAsRead();
+        markSentAsRead();
       }
     },
     onPresenceChange: (userId, status) => {
@@ -56,6 +63,111 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
     if (!conversationId) return;
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [conversationId, messages.length]);
+
+  const tenant = conversation
+    ? ((conversation as any).other_user ?? (conversation as any).tenant ?? (conversation as any).user)
+    : null;
+  const property = conversation ? ((conversation as any).property ?? null) : null;
+  const tenantName = getDisplayName(tenant) || 'Conversation';
+  const tenantInitial = tenantName.charAt(0).toUpperCase();
+  const tenantId = tenant && typeof tenant.id === 'number' ? tenant.id : null;
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function fetchApplication() {
+      if (!conversationId) {
+        if (!mounted) return;
+        setApplication(null);
+        setApplicationLoading(false);
+        setApplicationError(null);
+        return;
+      }
+
+      try {
+        setApplicationLoading(true);
+        setApplicationError(null);
+
+        // NB: certains backends ne supportent pas les query params `conversation_id`,
+        // donc on récupère la liste et on filtre côté front.
+        const all = await getApplications({ scope: 'owner' });
+
+        const byConversation = Array.isArray(all)
+          ? all.find((a) => Number((a as any).conversation_id) === conversationId) ?? null
+          : null;
+        if (mounted && byConversation) {
+          setApplication(byConversation);
+          return;
+        }
+
+        // Fallback: tenter avec propriété + locataire si dispo (naming backend variable).
+        const propertyId = typeof property?.id === 'number' ? property.id : null;
+        if (propertyId && tenantId) {
+          const byPair = Array.isArray(all)
+            ? all.find((a) => {
+                const p = (a as any).property;
+                const t = (a as any).tenant;
+                const pid = typeof p === 'number' ? p : Number(p?.id);
+                const tid = typeof t === 'number' ? t : Number(t?.id);
+                return pid === propertyId && tid === tenantId;
+              }) ?? null
+            : null;
+          if (mounted && byPair) {
+            setApplication(byPair);
+            return;
+          }
+        }
+
+        if (mounted) setApplication(null);
+      } catch (e) {
+        if (!mounted) return;
+        const msg = e instanceof Error ? e.message : String(e);
+        setApplication(null);
+        setApplicationError(msg || 'Erreur lors du chargement de la candidature');
+      } finally {
+        if (mounted) setApplicationLoading(false);
+      }
+    }
+
+    fetchApplication();
+    return () => {
+      mounted = false;
+    };
+  }, [conversationId, property?.id, tenantId]);
+
+  const canAccept = useMemo(() => {
+    if (!application) return false;
+    if (applicationActionLoading) return false;
+    if (applicationLoading) return false;
+    return application.status !== 'accepted';
+  }, [application, applicationActionLoading, applicationLoading]);
+
+  const canReject = useMemo(() => {
+    if (!application) return false;
+    if (applicationActionLoading) return false;
+    if (applicationLoading) return false;
+    return application.status !== 'rejected';
+  }, [application, applicationActionLoading, applicationLoading]);
+
+  const onApplicationAction = async (nextStatus: 'accepted' | 'rejected') => {
+    if (!application) return;
+    const prev = application;
+    setApplicationActionLoading(nextStatus);
+    setApplication({ ...application, status: nextStatus });
+    setApplicationError(null);
+    try {
+      const updated = await updateApplication(application.id, { status: nextStatus } as any);
+      setApplication(updated ?? { ...application, status: nextStatus });
+      // Pour éviter que le message "candidature non trouvée" persiste.
+      setApplicationError(null);
+    } catch (e) {
+      setApplication(prev);
+      const msg = e instanceof Error ? e.message : String(e);
+      setApplicationError(msg || 'Action impossible');
+    } finally {
+      setApplicationActionLoading(null);
+    }
+  };
 
   if (!conversationId) {
     return <EmptyState />;
@@ -80,14 +192,6 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
   if (!conversation && messages.length === 0) {
     return <EmptyState />;
   }
-
-  const tenant = conversation
-    ? ((conversation as any).other_user ?? (conversation as any).tenant ?? (conversation as any).user)
-    : null;
-  const property = conversation ? ((conversation as any).property ?? null) : null;
-  const tenantName = getDisplayName(tenant) || 'Conversation';
-  const tenantInitial = tenantName.charAt(0).toUpperCase();
-  const tenantId = tenant && typeof tenant.id === 'number' ? tenant.id : null;
 
   return (
     <div className="flex-1 flex flex-col bg-gray-50">
@@ -120,17 +224,40 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
             <p className="text-xs text-gray-500">
               {property?.title ?? 'Conversation'}
             </p>
+            {applicationLoading && (
+              <p className="text-[11px] text-gray-400">Chargement candidature...</p>
+            )}
+            {!applicationLoading && application && (
+              <p className="text-[11px] text-gray-500">Candidature: <span className="font-medium">{String(application.status)}</span></p>
+            )}
+            {!applicationLoading && applicationError && (
+              <p className="text-[11px] text-red-500">{applicationError}</p>
+            )}
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors">
+          <button
+            onClick={() => onApplicationAction('accepted')}
+            disabled={!canAccept}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+              canAccept ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-emerald-200 text-white cursor-not-allowed'
+            }`}
+            title={!application ? 'Aucune candidature liée à cette conversation' : undefined}
+          >
             <CheckCircle size={16} />
-            Accepter candidature
+            {applicationActionLoading === 'accepted' ? 'Acceptation...' : 'Accepter candidature'}
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl text-sm font-medium hover:bg-red-100 transition-colors">
+          <button
+            onClick={() => onApplicationAction('rejected')}
+            disabled={!canReject}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+              canReject ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-red-100 text-red-300 cursor-not-allowed'
+            }`}
+            title={!application ? 'Aucune candidature liée à cette conversation' : undefined}
+          >
             <XCircle size={16} />
-            Refuser
+            {applicationActionLoading === 'rejected' ? 'Refus...' : 'Refuser'}
           </button>
           <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg">
             <MoreVertical size={20} />

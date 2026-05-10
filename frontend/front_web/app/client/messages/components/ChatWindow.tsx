@@ -27,6 +27,7 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
     sendMessage,
     addIncomingMessage,
     markAsRead,
+    markSentAsRead,
   } = useMessages(conversationId, currentUserId);
 
   // WebSocket pour temps réel
@@ -37,7 +38,7 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
     },
     onReadReceipt: (convId, userId) => {
       if (convId === conversationId) {
-        markAsRead();
+        markSentAsRead();
       }
     },
     onPresenceChange: (userId, status) => {

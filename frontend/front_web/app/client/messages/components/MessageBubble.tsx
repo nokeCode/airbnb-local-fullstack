@@ -9,7 +9,7 @@ interface MessageBubbleProps {
 }
 
 export function MessageBubble({ message, isMe }: MessageBubbleProps) {
-  const isTemp = message.id === 0;
+  const isTemp = message.id <= 0;
   
   return (
     <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-4`}>
