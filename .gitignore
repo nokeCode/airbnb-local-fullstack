@@ -1,0 +1,39 @@
+# =========================
+# NEXTJS
+# =========================
+frontend/front_web/node_modules/
+frontend/front_web/.next/
+frontend/front_web/out/
+
+# =========================
+# DJANGO
+# =========================
+backend/gest_immo/db.sqlite3
+backend/gest_immo/media/
+
+# Python env
+backend/backenv/
+
+# =========================
+# COMMON
+# =========================
+.vscode/
+.qodo/
+.sixth/
+.zencoder/
+.zenflow/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env files
+.env
+.env.local
+.env.production
+
+# Typescript
+*.tsbuildinfo

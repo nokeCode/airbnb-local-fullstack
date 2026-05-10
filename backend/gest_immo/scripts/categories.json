@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Appartement",
+    "description": "Logement situé dans un immeuble."
+  },
+  {
+    "name": "Maison",
+    "description": "Bâtiment à usage d'habitation, généralement avec un jardin."
+  },
+  {
+    "name": "Bureau",
+    "description": "Espace destiné au travail administratif ou professionnel."
+  },
+  {
+    "name": "Terrain",
+    "description": "Parcelle de terre destinée à la construction ou à l'agriculture."
+  },
+  {
+    "name": "Villa",
+    "description": "Grande maison de standing avec jardin et souvent piscine."
+  },
+  {
+    "name": "Studio",
+    "description": "Appartement d'une seule pièce principale avec coin cuisine."
+  }
+]
