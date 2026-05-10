@@ -32,4 +32,6 @@ export const defaultClientFilters: ClientFilters = {
 
 // Main export expected by page.tsx and SearchHeader
 export const defaultRentalFilters: ClientFilters = defaultClientFilters;
+export const defaultSaleFilters = defaultRentalFilters;
+
 

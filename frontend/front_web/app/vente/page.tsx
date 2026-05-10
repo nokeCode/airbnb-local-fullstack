@@ -6,7 +6,7 @@ import Navbar from '@/components/Navbar/Navbar';
 import { PropertyCard } from '@/components/client/PropertyCard';
 import { FilterPanel } from '@/components/client/FilterPanel';
 import { SearchHeader } from '@/components/client/SearchHeader';
-import { ClientFilters, defaultSaleFilters, mapToApiFilters } from '@/components/client/filters';
+import { ClientFilters, defaultSaleFilters } from '@/components/client/filters';
 import { getPropertiesByType } from '@/services/propertiesService';
 import type { Property, DisplayProperty } from '@/app/types/Property';
 import { MapPin, Home, Euro, Maximize } from 'lucide-react';

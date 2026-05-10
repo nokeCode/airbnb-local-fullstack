@@ -21,7 +21,7 @@
 <table>
   <tr>
     <td align="center">
-      <img src="./frontend/front_web/public/hero-house.jpg" alt="Accueil" width="100%">
+      <img src="./images/landingPage.jpeg" alt="Accueil" width="100%">
       <br><sub><b>Page d'Accueil</b></sub>
     </td>
     <td align="center">
@@ -442,7 +442,7 @@ Ce projet est sous la licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus 
 ## 📞 Support
 
 Pour toute question ou assistance :
-- 📧 Email : support@airbnblocal.dev
+- 📧 Email : nokegermain@gmail.com
 - 💬 Discord : [Rejoindre le serveur](#)
 - 🐛 Issues : [GitHub Issues](#)
 
@@ -457,7 +457,7 @@ Pour toute question ou assistance :
 ---
 
 <div align="center">
-  Made with ❤️ by Your Team
+  Made with IAI-TOGO by Me
   <br><br>
   <a href="#top">⬆ Retour au haut de la page</a>
 </div>
